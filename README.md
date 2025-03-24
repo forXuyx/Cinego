@@ -5,9 +5,9 @@
 ## 使用方法
 
 ## 数据集
-- tokenizer数据集：来源于匠数科技大模型sft数据集，
-- pretrain数据集：
-- sft数据集：
+- tokenizer数据集：提取自Llava-video-178k中yutube视频QA数据集
+- pretrain数据集：MSRVTT-QA数据集
+- sft数据集：Llava-video-178k中yutube视频QA数据集的第一部分
 
 ## 致谢
 
