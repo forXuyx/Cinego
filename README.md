@@ -4,7 +4,7 @@
 
 ## 使用方法
 
-### 1.训练tokenizer（可选）
+### 1.训练tokenizer（可选，你也可以用我训练好的）
 
 ```shell
 python train_tokenizer.py
