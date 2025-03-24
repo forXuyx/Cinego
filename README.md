@@ -25,4 +25,5 @@ bash scripts/preprocess_sft.sh
 
 ## 致谢
 
-*** 特别感谢 [MiniMind](https://github.com/jingyaogong/minimind-v) 项目，本项目的架构和实现大量借鉴了他们的优秀工作。 ***
+- 特别感谢 [MiniMind](https://github.com/jingyaogong/minimind-v) 项目，本项目的架构和实现大量借鉴了他们的优秀工作
+- 感谢 MSRVTT-QA以及Llava-video-178k数据集的提供者
