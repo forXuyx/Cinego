@@ -1,4 +1,5 @@
 import json
+import av
 from PIL import Image
 from torch.utils.data import Dataset
 import torch
@@ -10,7 +11,7 @@ import numpy as np
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
-def video2image(video_path, num_frames=8, size=224):
+def video2image(video_path, frame_rate=1.0, size=224):
     def preprocess(size, n_px):
         return Compose([
             Resize(size, interpolation=InterpolationMode.BICUBIC),            
@@ -24,23 +25,26 @@ def video2image(video_path, num_frames=8, size=224):
     cap = cv2.VideoCapture(video_path, cv2.CAP_FFMPEG)
     frameCount = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     fps = int(cap.get(cv2.CAP_PROP_FPS))
-
-    if fps < 1 or frameCount < 1:
+    if fps < 1:
         images = np.zeros([3, size, size], dtype=np.float32) 
         print("ERROR: problem reading video file: ", video_path)
     else:
-        frames_idx = np.sort(np.random.choice(frameCount, min(num_frames, frameCount), replace=False))
-        
+        total_duration = (frameCount + fps - 1) // fps
+        start_sec, end_sec = 0, total_duration
+        interval = fps / frame_rate
+        frames_idx = np.floor(np.arange(start_sec*fps, end_sec*fps, interval))
+        ret = True     
         images = np.zeros([len(frames_idx), 3, size, size], dtype=np.float32)
-        
+            
         for i, idx in enumerate(frames_idx):
-            cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+            cap.set(cv2.CAP_PROP_POS_FRAMES , idx)
             ret, frame = cap.read()    
-            if not ret: 
-                continue
+            if not ret: break
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)             
+            last_frame = i
             images[i,:,:,:] = preprocess(size, Image.fromarray(frame).convert("RGB"))
-    
+            
+        images = images[:last_frame+1]
     cap.release()
     video_frames = torch.tensor(images)
     return video_frames
@@ -102,7 +106,7 @@ class VideoDataset(Dataset):
 
     def __getitem__(self, index: int):
         sample = self.samples[index]
-        video_paths = sample['video']
+        video_name = sample['video']
         prompt = self._create_chat_prompt(sample['conversations'])
         input_ids = self.tokenizer(prompt).input_ids[:self.max_length]
         input_ids += [self.tokenizer.pad_token_id] * (self.max_length - len(input_ids))
@@ -112,12 +116,9 @@ class VideoDataset(Dataset):
         Y = torch.tensor(input_ids[1:], dtype=torch.long)
         loss_mask = torch.tensor(loss_mask[1:], dtype=torch.long)
 
-        video_tensors = []
-        for video_name in video_paths.split(','):
-            video_name = video_name.strip()
-            video_path = f'{self.videos_path}/{video_name}'
-            video_tensor = video2image(video_path)
-            video_tensors.append(video_tensor)
-        video_tensors = torch.stack(video_tensors, dim=0)
+        video_path = f'{self.videos_path}/{video_name}'
+        feature_path = video_path.replace('.mp4', '.npy').replace('_video', '_video_feature')
+        feature = np.load(feature_path).astype(np.float32)
+        video_tensor = torch.tensor(feature, dtype=torch.float32)
 
-        return X, Y, loss_mask, video_tensors
+        return X, Y, loss_mask, video_tensor

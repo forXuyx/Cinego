@@ -78,7 +78,7 @@ class Cinego(PreTrainedModel):
         if vision_tensors is not None and image_indices:
             vision_proj = self.vision_proj(vision_tensors)
             if len(vision_proj.shape) == 3:
-                vision_proj = vision_proj.unsqueeze(0)
+                vision_proj = vision_proj.unsqueeze(1)
             new_h = []
             for i in range(h.size(0)):
                 if i in image_indices:
@@ -103,22 +103,8 @@ class Cinego(PreTrainedModel):
                 **args):
         start_pos = args.get('start_pos', 0)
         pixel_tensors = args.get('pixel_tensors', None)
-        pixel_embeddings = args.get('pixel_embeddings', None)
         h = self.tok_embeddings(input_ids)
-
-        if pixel_tensors is not None and start_pos == 0:
-            if len(pixel_tensors.shape) == 7:
-                pixel_tensors = pixel_tensors.squeeze(2)
-            bs, num, frame, c, im_h, im_w = pixel_tensors.shape
-            stack_dim = 1 if bs > 1 else 0
-            vision_tensors = torch.stack([
-                Cinego.get_video_embeddings(pixel_tensors[:, i, :, :, :, :], self.vision_encoder)
-                for i in range(num)
-            ], dim=stack_dim)
-            h = self.count_vision_proj(tokens=input_ids, h=h, vision_tensors=vision_tensors, seqlen=input_ids.shape[1])
-        # 提前提取视频特征加速训练
-        elif pixel_embeddings is not None and start_pos == 0:
-            h = self.count_vision_proj(tokens=input_ids, h=h, vision_tensors=pixel_embeddings, seqlen=input_ids.shape[1])
+        h = self.count_vision_proj(tokens=input_ids, h=h, vision_tensors=pixel_tensors, seqlen=input_ids.shape[1])
 
         pos_cis = self.pos_cis[start_pos:start_pos + input_ids.shape[1]]
         past_kvs = []

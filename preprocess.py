@@ -49,8 +49,8 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--video-path", type=str, default='dataset/pretrain_video')
-    parser.add_argument("--output-dir", type=str, default='dataset/pretrain_video_feature')
+    parser.add_argument("--video-path", type=str, default='dataset/all_video')
+    parser.add_argument("--output-dir", type=str, default='dataset/all_video_feature')
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
     main(args)
