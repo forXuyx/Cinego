@@ -25,7 +25,7 @@ def train_tokenizer():
                 data = json.loads(line)
                 yield data['text']
 
-    data_path = 'dataset/tokenizer_data.jsonl'
+    data_path = 'dataset/sft_data_en.jsonl'
 
     # 初始化tokenizer
     tokenizer = Tokenizer(models.BPE())
