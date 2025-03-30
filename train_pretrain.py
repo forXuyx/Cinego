@@ -108,10 +108,11 @@ def init_model(model_config: LMConfig):
         state_dict = torch.load(ckp, map_location=args.device)
         model.load_state_dict(state_dict, strict=False)
 
-    # 冻结除 vision_proj 外的所有参数
+    # 冻结除vision_proj和video_summarizer外的所有参数
     for name, param in model.named_parameters():
-        if 'vision_proj' not in name:
-            param.requires_grad = False
+        param.requires_grad = False
+        if 'vision_proj' or 'video_summarizer' in name:
+            param.requires_grad = True
     # 可训练
     if hasattr(model, "layers"):
         last_two_layers = model.layers[-1:]

@@ -274,3 +274,67 @@ class LLMBlock(nn.Module):
         h = x + h_attn
         out = h + self.feed_forward(self.ffn_norm(h))
         return out, past_kv
+    
+# 论文GPT4Video核心组件复现
+class CrossAttentionBlock(nn.Module):
+    def __init__(self, embed_dim=768, num_heads=8, dropout=0.1):
+        super().__init__()
+        # PyTorch 自带的多头注意力层
+        self.mha = nn.MultiheadAttention(
+            embed_dim=embed_dim,
+            num_heads=num_heads,
+            dropout=dropout,
+            batch_first=True  # 输入输出为 (B, S, D)
+        )
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, Q, K, V):
+        attn_out, attn_weights = self.mha(Q, K, V)  # (B, seq_len, D), (B, seq_len, seq_len)
+        attn_out = self.dropout(attn_out)
+        return attn_out, attn_weights
+
+# 为了更轻量化，我们的num_layers选择为1
+class VideoSummarizer(nn.Module):
+    def __init__(self, 
+                 embed_dim=768,
+                 n_queries=197, 
+                 num_heads=8, 
+                 num_layers=1, 
+                 dropout=0.1):
+        super().__init__()
+        self.num_layers = num_layers
+
+        # 创建若干层 CrossAttentionBlock，用于空间和时间两条分支
+        self.cross_attn_s = nn.ModuleList([
+            CrossAttentionBlock(embed_dim, num_heads, dropout) 
+            for _ in range(num_layers)
+        ])
+        self.cross_attn_t = nn.ModuleList([
+            CrossAttentionBlock(embed_dim, num_heads, dropout) 
+            for _ in range(num_layers)
+        ])
+
+        # 定义两组可学习的 Query：分别用于空间 (s) 和时间 (t)
+        self.query_s = nn.Parameter(torch.randn(1, n_queries, embed_dim))
+        self.query_t = nn.Parameter(torch.randn(1, n_queries, embed_dim))
+
+    def forward(self, F_v):
+        """
+        F_v: (B, N, 197, D) -> (B, N*197, D)
+        返回: (B, n_queries, D) 的视频表征
+        """
+        B, N, P, D = F_v.shape
+        # 将所有帧的 patch/Token 拉平为一个序列
+        F_v = F_v.view(B, N*P, D)  # (B, N*197, D)
+
+        Q_s = self.query_s.expand(B, -1, -1).contiguous()
+        Q_t = self.query_t.expand(B, -1, -1).contiguous()
+
+        for i in range(self.num_layers):
+            F_s, _ = self.cross_attn_s[i](Q_s, F_v, F_v)
+            F_t, _ = self.cross_attn_t[i](Q_t, F_v, F_v)
+            Q_s = F_s
+            Q_t = F_t
+
+        F_hat_v = Q_s + Q_t
+        return F_hat_v

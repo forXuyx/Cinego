@@ -36,10 +36,8 @@ def main(args):
         video_tensors = video2image(video_path).to(device)
         with torch.no_grad():
             outputs = model.vision_model(pixel_values=video_tensors)
-            vid_embedding = outputs.last_hidden_state[:, 1:, :].squeeze()
-            vid_embedding = vid_embedding / vid_embedding.norm(dim=-1, keepdim=True)
-            vid_embedding = torch.mean(vid_embedding, dim=0)
-            vid_embedding = vid_embedding / vid_embedding.norm(dim=-1, keepdim=True)
+            # vid_embedding = outputs.last_hidden_state[:, 1:, :].squeeze()
+            vid_embedding = outputs.last_hidden_state.squeeze()
         
         # save the video feature
         vid_embedding = vid_embedding.cpu().numpy()

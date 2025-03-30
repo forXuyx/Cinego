@@ -25,7 +25,7 @@ def train_tokenizer():
                 data = json.loads(line)
                 yield data['text']
 
-    data_path = 'dataset/sft_data_en.jsonl'
+    data_path = 'dataset/tokenizer_data.jsonl'
 
     # 初始化tokenizer
     tokenizer = Tokenizer(models.BPE())
@@ -141,6 +141,9 @@ def eval_tokenizer():
     input_ids = model_inputs['input_ids']
     response = tokenizer.decode(input_ids, skip_special_tokens=False)
     print('decoder和原始文本是否一致：', response == new_prompt)
+
+    test = tokenizer.encode('@')
+    print('视觉token：', test)
 
 
 def main():

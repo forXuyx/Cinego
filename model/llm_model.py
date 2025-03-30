@@ -35,9 +35,10 @@ class Cinego(PreTrainedModel):
         self.OUT = CausalLMOutputWithPast()
 
         self.vision_proj = nn.Linear(params.vision_dim, params.dim)
+        self.video_summarizer = VideoSummarizer()
 
     @staticmethod
-    def get_vision_model(model_path="./model/vision_model/clip-vit-base-patch16"):
+    def get_vision_model(model_path="model/vision_model/clip-vit-base-patch16"):
         model = CLIPModel.from_pretrained(model_path)
         # 冻结 vision_encoder 的所有参数
         for param in model.parameters():
@@ -51,10 +52,7 @@ class Cinego(PreTrainedModel):
         for video_tensor in video_tensors:
             with torch.no_grad():
                 outputs = vision_model.vision_model(pixel_values=video_tensor)
-            vid_embedding = outputs.last_hidden_state[:, 1:, :].squeeze()
-            vid_embedding = vid_embedding / vid_embedding.norm(dim=-1, keepdim=True)
-            vid_embedding = torch.mean(vid_embedding, dim=0)
-            vid_embedding = vid_embedding / vid_embedding.norm(dim=-1, keepdim=True)
+            vid_embedding = outputs.last_hidden_state.squeeze()
             vid_embeddings.append(vid_embedding)
         vid_embeddings = torch.stack(vid_embeddings, dim=0)
 
@@ -103,6 +101,11 @@ class Cinego(PreTrainedModel):
                 **args):
         start_pos = args.get('start_pos', 0)
         pixel_tensors = args.get('pixel_tensors', None)
+
+        # 运用跨模态注意力
+        if pixel_tensors is not None:
+            pixel_tensors = self.video_summarizer(pixel_tensors)
+
         h = self.tok_embeddings(input_ids)
         h = self.count_vision_proj(tokens=input_ids, h=h, vision_tensors=pixel_tensors, seqlen=input_ids.shape[1])
 

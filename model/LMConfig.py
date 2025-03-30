@@ -20,8 +20,8 @@ class LMConfig(PretrainedConfig):
             rope_theta: int = 1e6,
             dropout: float = 0.0,
             flash_attn: bool = True,
-            image_special_token: str = '@' * 196,
-            image_ids: List = [34] * 196,
+            image_special_token: str = '@' * 197,
+            image_ids: List = [34] * 197,
             ####################################################
             # Here are the specific configurations of MOE
             # When use_moe is false, the following is invalid
