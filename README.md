@@ -75,14 +75,15 @@ $$
 \hat{F}_v = F_s + F_t
 $$
 
+总体来说，加入位置编码后，模型的Loss降到了一个更低的水平，但受限于数据集过小，我们无法清晰地判断出哪个模型的输出更好（因为都存在幻视）
 
 
-### 结论
-- 数据集还是太小了，有许多胡言乱语的描述
-- 直接取平均的操作可能不能很好地表达视频的特征
+### ToDo
+- 更高质量的训练数据
 
 
 ## 致谢
 
 - 特别感谢 [MiniMind](https://github.com/jingyaogong/minimind-v) 项目，本项目的架构和实现大量借鉴了他们的优秀工作
 - 感谢 [LLaVA-Video-178K](https://huggingface.co/datasets/lmms-lab/LLaVA-Video-178K/tree/main)数据集的提供者
+- 感谢 [GPT4Video](https://arxiv.org/abs/2311.16511)论文的作者们
