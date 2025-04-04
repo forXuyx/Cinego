@@ -45,15 +45,15 @@ python eval.py
 
 ### 整体采用LlaVa架构，视频特征提取实现参照了[GPT4Video](https://arxiv.org/abs/2311.16511)，本项目的实现与该论文中的实现略有不同，原文中的公式为：
 $$
-Att(Q, K, V) = \mathrm{softmax}\!\Bigl(\frac{QK^T}{\sqrt{d_k}}\Bigr)V
+Att(Q, K, V) = \mathrm{softmax}\Bigl(\frac{QK^T}{\sqrt{d_k}}\Bigr)V
 $$
 
 $$
-F_s = \mathrm{CrossAttention}(Q_s,\,[f_v, Q_s],\,[f_v, Q_s])
+F_s = \mathrm{CrossAttention}(Q_s,\,[f_v, Q_s]\,[f_v, Q_s])
 $$
 
 $$
-F_t = \mathrm{CrossAttention}(Q_t,\,[f_v, Q_t],\,[f_v, Q_t])
+F_t = \mathrm{CrossAttention}(Q_t,\,[f_v, Q_t]\,[f_v, Q_t])
 $$
 
 $$
