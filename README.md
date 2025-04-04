@@ -60,6 +60,21 @@ $$
 \hat{F}_v = F_s + F_t
 $$
 
+由于GPT4Video并未开源模型结构，所以我们不了解这里是如何体现时间维度以及空间维度的query的，但在论文中所公布的公式来看，F_s与F_t共用了一个f_v，所以我在其基础上进行了修改，具体来说，在空间维度时，我们直接采用f_v，而在时间维度上，我们对f_v加入位置编码以表现时间信息，本项目中的公式可写为：
+
+$$
+Att(Q, K, V) = \mathrm{softmax}\Bigl(\frac{QK^T}{\sqrt{d_k}}\Bigr)V
+$$
+$$
+F_s = \mathrm{CrossAttention}(Q_s,\,[f_v, Q_s]\,[f_v, Q_s])
+$$
+$$
+F_t = \mathrm{CrossAttention}(Q_t,\,[f_v + P_t, Q_t]\,[f_v + P_t, Q_t])
+$$
+$$
+\hat{F}_v = F_s + F_t
+$$
+
 
 
 ### 结论
