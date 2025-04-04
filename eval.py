@@ -51,7 +51,7 @@ if __name__ == "__main__":
     parser.add_argument('--temperature', default=0.65, type=float)
     parser.add_argument('--top_p', default=0.85, type=float)
     parser.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu', type=str)
-    parser.add_argument('--dim', default=768, type=int)
+    parser.add_argument('--dim', default=512, type=int)
     parser.add_argument('--n_layers', default=16, type=int)
     parser.add_argument('--max_seq_len', default=8192, type=int)
     parser.add_argument('--use_moe', default=False, type=bool)

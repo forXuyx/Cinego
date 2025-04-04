@@ -318,6 +318,17 @@ class VideoSummarizer(nn.Module):
         self.query_s = nn.Parameter(torch.randn(1, n_queries, embed_dim))
         self.query_t = nn.Parameter(torch.randn(1, n_queries, embed_dim))
 
+        self.positional_encoding = self.create_position_encoding(2048, embed_dim)
+        
+    def create_position_encoding(self, max_len, D):
+        pe = torch.zeros(max_len, D)
+        position = torch.arange(0, max_len).unsqueeze(1).float()
+        div_term = torch.exp(torch.arange(0, D, 2).float() * -(math.log(10000.0) / D))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0)
+        return pe
+
     def forward(self, F_v):
         """
         F_v: (B, N, 197, D) -> (B, N*197, D)
@@ -327,12 +338,15 @@ class VideoSummarizer(nn.Module):
         # 将所有帧的 patch/Token 拉平为一个序列
         F_v = F_v.view(B, N*P, D)  # (B, N*197, D)
 
+        position_enc = self.positional_encoding[:, :N*P].to(F_v.device)
+        F_t = F_v + position_enc
+
         Q_s = self.query_s.expand(B, -1, -1).contiguous()
         Q_t = self.query_t.expand(B, -1, -1).contiguous()
 
         for i in range(self.num_layers):
             F_s, _ = self.cross_attn_s[i](Q_s, F_v, F_v)
-            F_t, _ = self.cross_attn_t[i](Q_t, F_v, F_v)
+            F_t, _ = self.cross_attn_t[i](Q_t, F_t, F_t)
             Q_s = F_s
             Q_t = F_t
 
