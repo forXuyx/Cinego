@@ -60,8 +60,7 @@ F_t = \mathrm{CrossAttention}(Q_t,\,[f_v, Q_t],\,[f_v, Q_t])
 \[
 \hat{F}_v = F_s + F_t
 \]
-
-
+````
 
 
 
