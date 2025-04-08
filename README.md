@@ -49,11 +49,11 @@ Att(Q, K, V) = \mathrm{softmax}\Bigl(\frac{QK^T}{\sqrt{d_k}}\Bigr)V
 $$
 
 $$
-F_s = \mathrm{CrossAttention}(Q_s,\,[f_v, Q_s]\,[f_v, Q_s])
+F_s = \mathrm{CrossAttention}(Q_s\,[f_v, Q_s]\,[f_v, Q_s])
 $$
 
 $$
-F_t = \mathrm{CrossAttention}(Q_t,\,[f_v, Q_t]\,[f_v, Q_t])
+F_t = \mathrm{CrossAttention}(Q_t\,[f_v, Q_t]\,[f_v, Q_t])
 $$
 
 $$
