@@ -21,41 +21,50 @@ def video2image(video_path, num_frames=4, size=224):
             Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)),
         ])(image)
 
-    container = av.open(video_path)
-    video_stream = container.streams.video[0]
+    # 如果是视频
+    if video_path.endswith('.mp4') or video_path.endswith('.avi') or video_path.endswith('.mkv'):
+        container = av.open(video_path)
+        video_stream = container.streams.video[0]
+        
+        # 解码所有帧
+        frames = [frame for frame in container.decode(video_stream)]
+        total_frames = len(frames)
+        if total_frames == 0:
+            print("ERROR: problem reading video file:", video_path)
+            return torch.zeros([1, 3, size, size], dtype=torch.float32)
+        
+        # 均匀选择 num_frames 帧
+        indices = np.linspace(0, total_frames - 1, num_frames, dtype=int)
+        images = []
+        for i in indices:
+            # 将 pyAV 的帧转换为 PIL Image
+            pil_img = frames[i].to_image()
+            img_tensor = preprocess(size, pil_img)
+            images.append(img_tensor.numpy())
+        
+        images = np.stack(images, axis=0)
+        video_frames = torch.tensor(images)
+    # 如果是图片
+    elif video_path.endswith('.jpg') or video_path.endswith('.png'):
+        image = Image.open(video_path)
+        image = preprocess(size, image)
+        video_frames = torch.stack([image], dim=0)
     
-    # 解码所有帧
-    frames = [frame for frame in container.decode(video_stream)]
-    total_frames = len(frames)
-    if total_frames == 0:
-        print("ERROR: problem reading video file:", video_path)
-        return torch.zeros([1, 3, size, size], dtype=torch.float32)
-    
-    # 均匀选择 num_frames 帧
-    indices = np.linspace(0, total_frames - 1, num_frames, dtype=int)
-    images = []
-    for i in indices:
-        # 将 pyAV 的帧转换为 PIL Image
-        pil_img = frames[i].to_image()
-        img_tensor = preprocess(size, pil_img)
-        images.append(img_tensor.numpy())
-    
-    images = np.stack(images, axis=0)
-    video_frames = torch.tensor(images)
     return video_frames
 
 
-class VideoDataset(Dataset):
-    def __init__(self, jsonl_path, videos_path, tokenizer, max_length=512,
-                 video_special_token='@' * 197):
+class ImageDataset(Dataset):
+    def __init__(self, jsonl_path, images_path, tokenizer, max_length=512,
+                 image_special_token='@' * 197, use_feature=False):
 
         super().__init__()
         self.samples = self.load_data(jsonl_path)
-        self.videos_path = videos_path
+        self.images_path = images_path
+        self.use_feature = use_feature
 
         self.tokenizer = tokenizer
         self.max_length = max_length
-        self.video_token = video_special_token
+        self.image_token = image_special_token
         self.bos_id = tokenizer('<s>assistant\n', add_special_tokens=False).input_ids
         self.eos_id = tokenizer('</s>\n', add_special_tokens=False).input_ids
 
@@ -74,7 +83,7 @@ class VideoDataset(Dataset):
         messages = []
         for i, turn in enumerate(conversations):
             role = 'user' if i % 2 == 0 else 'assistant'
-            messages.append({"role": role, "content": turn['content'].replace('<video>', self.video_token)})
+            messages.append({"role": role, "content": turn['content'].replace('<image>', self.image_token)})
         return self.tokenizer.apply_chat_template(
             messages,
             tokenize=False,
@@ -101,7 +110,7 @@ class VideoDataset(Dataset):
 
     def __getitem__(self, index: int):
         sample = self.samples[index]
-        video_name = sample['video']
+        image_name = sample['image']
         prompt = self._create_chat_prompt(sample['conversations'])
         input_ids = self.tokenizer(prompt).input_ids[:self.max_length]
         input_ids += [self.tokenizer.pad_token_id] * (self.max_length - len(input_ids))
@@ -110,10 +119,14 @@ class VideoDataset(Dataset):
         X = torch.tensor(input_ids[:-1], dtype=torch.long)
         Y = torch.tensor(input_ids[1:], dtype=torch.long)
         loss_mask = torch.tensor(loss_mask[1:], dtype=torch.long)
+        
+        if self.use_feature:
+            feature_path = f'{self.images_path}/{image_name}'.replace('.mp4', '.npy').replace('.avi', '.npy').replace('.mkv', '.npy').replace('.jpg', '.npy').replace('.png', '.npy')
+            image_feature = np.load(feature_path)
+            image_feature = torch.tensor(image_feature, dtype=torch.float32)
+            return X, Y, loss_mask, image_feature
+        else:
+            image_path = f'{self.images_path}/{image_name}'
+            image_tensor = video2image(image_path, num_frames=32, size=224)
 
-        video_path = f'{self.videos_path}/{video_name}'
-        feature_path = video_path.replace('.mp4', '.npy').replace('_video', '_video_feature')
-        feature = np.load(feature_path).astype(np.float32)
-        video_tensor = torch.tensor(feature, dtype=torch.float32)
-
-        return X, Y, loss_mask, video_tensor
+            return X, Y, loss_mask, image_tensor

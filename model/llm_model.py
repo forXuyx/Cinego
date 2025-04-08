@@ -35,6 +35,7 @@ class Cinego(PreTrainedModel):
         self.OUT = CausalLMOutputWithPast()
 
         self.vision_proj = nn.Linear(params.vision_dim, params.dim)
+        self.vision_encoder = self.__class__.get_vision_model()
         self.video_summarizer = VideoSummarizer()
 
     @staticmethod
@@ -46,17 +47,17 @@ class Cinego(PreTrainedModel):
         return model.eval()
 
     @staticmethod
-    def get_video_embeddings(video_tensors, vision_model):
-        # video_tensors: (bs, frame, c, h, w)
-        vid_embeddings = []
-        for video_tensor in video_tensors:
-            with torch.no_grad():
-                outputs = vision_model.vision_model(pixel_values=video_tensor)
-            vid_embedding = outputs.last_hidden_state.squeeze()
-            vid_embeddings.append(vid_embedding)
-        vid_embeddings = torch.stack(vid_embeddings, dim=0)
+    def get_image_embeddings(image_tensors, vision_model):
+        # image_tensors: (bs, frame, c, h, w)
+        # img_embeddings: (bs, frame, token_num, dim)
+        bs, frame, c, h, w = image_tensors.shape
+        image_tensors = image_tensors.view(-1, c, h, w)
+        with torch.no_grad():
+            outputs = vision_model.vision_model(pixel_values=image_tensors)
+        img_embeddings = outputs.last_hidden_state.squeeze()
+        img_embeddings = rearrange(img_embeddings, '(bs frame) token_num dim -> bs frame token_num dim', bs=bs)
 
-        return vid_embeddings
+        return img_embeddings
     
     def count_vision_proj(self, tokens, h, vision_tensors=None, seqlen=512):
         def find_indices(tokens, image_ids):
@@ -101,13 +102,19 @@ class Cinego(PreTrainedModel):
                 **args):
         start_pos = args.get('start_pos', 0)
         pixel_tensors = args.get('pixel_tensors', None)
-
-        # 运用跨模态注意力
-        if pixel_tensors is not None:
-            pixel_tensors = self.video_summarizer(pixel_tensors)
-
         h = self.tok_embeddings(input_ids)
-        h = self.count_vision_proj(tokens=input_ids, h=h, vision_tensors=pixel_tensors, seqlen=input_ids.shape[1])
+
+        if pixel_tensors is not None and start_pos == 0:
+            if len(pixel_tensors.shape) == 6:
+                pixel_tensors = pixel_tensors.squeeze(2)
+            
+            # 如果没有提前处理特征
+            if len(pixel_tensors.shape) == 5:
+                vision_tensors = self.get_image_embeddings(pixel_tensors, self.vision_encoder)
+            else:
+                vision_tensors = pixel_tensors
+            vision_tensors = self.video_summarizer(vision_tensors)
+            h = self.count_vision_proj(tokens=input_ids, h=h, vision_tensors=vision_tensors, seqlen=input_ids.shape[1])
 
         pos_cis = self.pos_cis[start_pos:start_pos + input_ids.shape[1]]
         past_kvs = []

@@ -338,15 +338,16 @@ class VideoSummarizer(nn.Module):
         # 将所有帧的 patch/Token 拉平为一个序列
         F_v = F_v.view(B, N*P, D)  # (B, N*197, D)
 
-        position_enc = self.positional_encoding[:, :N*P].to(F_v.device)
-        F_t = F_v + position_enc
+        # 通过pe加入时序信息（不知道是否合理）
+        # position_enc = self.positional_encoding[:, :N*P].to(F_v.device)
+        # F_t = F_v + position_enc
 
         Q_s = self.query_s.expand(B, -1, -1).contiguous()
         Q_t = self.query_t.expand(B, -1, -1).contiguous()
 
         for i in range(self.num_layers):
-            F_s, _ = self.cross_attn_s[i](Q_s, F_v, F_v)
-            F_t, _ = self.cross_attn_t[i](Q_t, F_t, F_t)
+            F_s, _ = self.cross_attn_s[i](Q_s, torch.cat([F_v, Q_s], dim=1), torch.cat([F_v, Q_s], dim=1))
+            F_t, _ = self.cross_attn_t[i](Q_t, torch.cat([F_v, Q_t], dim=1), torch.cat([F_v, Q_t], dim=1))
             Q_s = F_s
             Q_t = F_t
 
