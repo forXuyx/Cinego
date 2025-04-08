@@ -1,89 +1,119 @@
-# Cinego
+### Cinego(Cine means 🎬, ego means 🤖)
 
-此库为minimind-v所衍生的轻量视频理解大模型。
+# 📌 简介
 
-## 使用方法
+此项目继承自开源项目[MiniMind-V](https://github.com/jingyaogong/minimind),旨在扩展MiniMind-V实现视频理解功能，同时作为一个入门视频理解的入门教程😊。
 
-### 1.训练tokenizer（可选，你也可以用我训练好的）
+> [!NOTE]
+> 请确保你已经熟悉了[MiniMind-V](https://github.com/jingyaogong/minimind)的基本使用和训练流程。
 
-```shell
-python train_tokenizer.py
+
+**项目功能清单（含待做）**
+
+- [ ] 完善UI界面
+- [ ] 实现多轮对话训练逻辑
+- [ ] 替换VideoSummary中注意力计算为线性注意力
+- [x] 复现GPT4Video中的VideoSummary结构
+- [x] 实现数据特征的预提取
+- [x] 修改dataset结构兼容图片、视频、抽取特征
+
+
+# 📌 快速开始
+
+**开始前注意事项**
+
+- 请确保具有完善的训练环境（请参照Minimind-V的README.md
+- 请参照Minimind-V准备Clip模型以及text tokenizer（这里你可以自己重新训练一个，本项目直接用的minimind自带的tokenizer）
+- 请根据自己需求下载数据集以及checkpoint（我在这里后续会贴出我训练所用的链接）
+
+### 第0步
+
+```bash
+git clone https://github.com/forXuyx/Cinego.git
 ```
 
-### 2.提取视频特征(可选，你也可以直接下载我提取好的特征)
+## Ⅰ 测试已有模型效果
 
-```shell
-python preprocess.py
+### 1.命令行问答
+
+```bash
+python eval_model.py
 ```
 
-### 3.训练预训练模型
+### 2.或启动WebUI （待做）
 
-```shell
+```bash
+streamlit run web_demo.py
+```
+
+## Ⅱ 从0开始自己训练
+
+### 1.开始训练
+
+**1.1 预训练**
+
+```bash
 python train_pretrain.py
 ```
 
-### 4.训练SFT模型
+> 执行预训练，得到 `pretrain_videolm_*.pth` 作为预训练的输出权重（其中*为模型的dimension，默认为512）
 
-```shell
+
+**1.2 监督微调**
+
+```bash
 python train_sft.py
 ```
 
-### 5.测试模型
+> 执行监督微调，得到 `sft_videolm_*.pth` 作为指令微调的输出权重
 
-```shell
-python eval.py
+
+### 2.测试模型效果
+
+确保需要测试的模型`*.pth`文件位于`./out/`目录下。
+
+```bash
+python eval_model.py
 ```
 
+# 📌 数据介绍与训练策略
 
-## 数据集
+在先前的项目中我选取了LLaVA-Video-178K数据集中的一个子集作为Pretrain以及SFT数据集，这是不合规的，但当初只是作为一个toy项目来做的，所以没有考虑那么多，这也导致训练出来的模型存在很大的幻视，但我发现有部分朋友在关注我这个项目，所以我现在想尝试将他做的好一点哈哈哈（大家都可以参与进来！）<br/>
 
-
-### 由于视频数据集实在太大了，这里我的Pretrain与SFT数据集选择的均为[LLaVA-Video-178K](https://huggingface.co/datasets/lmms-lab/LLaVA-Video-178K/tree/main)中的0_30_s_academic_v0_1子集
-
-
-## 实现核心
-
-### 整体采用LlaVa架构，视频特征提取实现参照了[GPT4Video](https://arxiv.org/abs/2311.16511)，本项目的实现与该论文中的实现略有不同，原文中的公式为：
-$$
-Att(Q, K, V) = \mathrm{softmax}\Bigl(\frac{QK^T}{\sqrt{d_k}}\Bigr)V
-$$
-
-$$
-F_s = \mathrm{CrossAttention}(Q_s\,[f_v, Q_s]\,[f_v, Q_s])
-$$
-
-$$
-F_t = \mathrm{CrossAttention}(Q_t\,[f_v, Q_t]\,[f_v, Q_t])
-$$
-
-$$
-\hat{F}_v = F_s + F_t
-$$
-
-由于GPT4Video并未开源模型结构，所以我们不了解这里是如何体现时间维度以及空间维度的query的，但在论文中所公布的公式来看，F_s与F_t共用了一个f_v，所以我在其基础上进行了修改，具体来说，在空间维度时，我们直接采用f_v，而在时间维度上，我们对f_v加入位置编码以表现时间信息，本项目中的公式可写为：
-
-$$
-Att(Q, K, V) = \mathrm{softmax}\Bigl(\frac{QK^T}{\sqrt{d_k}}\Bigr)V
-$$
-$$
-F_s = \mathrm{CrossAttention}(Q_s,\,[f_v, Q_s]\,[f_v, Q_s])
-$$
-$$
-F_t = \mathrm{CrossAttention}(Q_t,\,[f_v + P_t, Q_t]\,[f_v + P_t, Q_t])
-$$
-$$
-\hat{F}_v = F_s + F_t
-$$
-
-总体来说，加入位置编码后，模型的Loss降到了一个更低的水平，但受限于数据集过小，我们无法清晰地判断出哪个模型的输出更好（因为都存在幻视）
+目前所选数据集：
+- Pretrain数据集：与Minimind中所选用的Pretrain数据集保持一致（LLaVA-Video-178K），Pretrain阶段我们会更新VideoSummary以及后接的映射层以及LLM最后一层的参数，这样做的目的是得到良好的通用视觉特征表示
+- SFT数据集：使用了来自[VideoChatGPT](https://huggingface.co/datasets/lmms-lab/VideoChatGPT)大概180G的视频数据（忒大了！！！），SFT阶段我们会开放模型的全部参数进行微调
 
 
-### ToDo
-- 更高质量的训练数据
+# 📌 Model Structure
+
+与MiniMind-V的整体结构一致，只是新增了一个VideoSummary块。
+其结构如下（还没画）：
+
+<!-- ![structure](./images/LLM-structure.png) -->
+
+# 📌 A Suggestion
+
+其实洞察整个项目，相比于Minimind-V不同就在于我新增了一个VideoSummary的结构，所以在这里其实我们最需要主要到的就是如何得到良好的视频特征表示，其他的是图像理解模型其实大同小异，这里我列举一些结构来获得视频特征表示：
+- 利用Clip得到每一帧的特征表示，然后汇聚每一帧的特征表示到一个CLS中去（本项目的方法）
+- 利用预训练的Vit + Q-former来得到每一帧的特征表示，然后拼接到一起（Q-former最后得到的特征大小似乎是32？或者我记错了，反正是比较低维的，所以就比较好拼接，拼接后的数据不会太长）
+- 直接使用预训练的Video模型来提取每一个视频的特征
+
+# 📌 Acknowledge
+
+> [!NOTE]
+> 如果觉得`Cinego`对你学习视频理解大模型有所帮助，可以在 GitHub 上加一个⭐<br/>
+> 长水平有限，欢迎任何形式的修改意见，请随时提issue或pr，我会尽快查看😊<br/>
+
+## 😊鸣谢
+<summary> <b>参考链接 & 感谢以下优秀的论文或项目</b> </summary>
+
+- 特别感谢Minimind系列作者[jingyaogong](https://github.com/jingyaogong)的优秀工作
+- 感谢[GPT4Video](https://arxiv.org/abs/2311.16511)论文作者所提出的Summary结构
+- 感谢数据集[Chinese-LLaVA-Vision-Instructions](https://huggingface.co/datasets/LinkSoul/Chinese-LLaVA-Vision-Instructions)的提供者
+- 感谢[VideoChatGPT](https://huggingface.co/datasets/lmms-lab/VideoChatGPT)数据集的提供者
 
 
-## 致谢
+# License
 
-- 特别感谢 [MiniMind](https://github.com/jingyaogong/minimind-v) 项目，本项目的架构和实现大量借鉴了他们的优秀工作
-- 感谢 [LLaVA-Video-178K](https://huggingface.co/datasets/lmms-lab/LLaVA-Video-178K/tree/main)数据集的提供者
-- 感谢 [GPT4Video](https://arxiv.org/abs/2311.16511)论文的作者们
+This repository is licensed under the [Apache-2.0 License](LICENSE).
