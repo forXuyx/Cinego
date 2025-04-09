@@ -90,6 +90,8 @@ python eval_model.py
 - SFT视频数据：[百度网盘](https://pan.baidu.com/share/init?surl=0hJ_U7wVmYTUo75YHc_n8g&pwd=g1hf)
 - SFT视频特征数据（建议使用）：上传中......
 - 验证数据集：[百度网盘](https://pan.baidu.com/s/14I5ta7rnhzBmuuEBUij4vQ)
+- tokenizer：[百度网盘](https://pan.baidu.com/s/1bb0HDw5lmO1BYxr3WEoreQ) (其实就是用Minimind的hq数据重新训了一遍哈哈哈)
+- 全部文件：上传中......
 
 
 ## 📌 Model Structure
