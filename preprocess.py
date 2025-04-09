@@ -5,6 +5,7 @@ from tqdm import tqdm
 import os
 import argparse
 import numpy as np
+import av
 from PIL import Image
 from einops import rearrange
 import sys
@@ -13,24 +14,27 @@ from torch.utils.data import Dataset, DataLoader
 from model.dataset import video2image
 
 class ImageDataset(Dataset):
-    def __init__(self, images_path):
+    def __init__(self, images_list):
 
         super().__init__()
-        self.images_path = images_path
-        self.images_list = os.listdir(images_path)
+        self.images_list = images_list
 
 
     def __len__(self):
         return len(self.images_list)
 
     def __getitem__(self, index: int):
-        image_path = os.path.join(self.images_path, self.images_list[index])
+        image_path = self.images_list[index]
         image_tensor = video2image(image_path, num_frames=8, size=224)
 
         return image_tensor, image_path
 
 def main(args):
     # Setup PyTorch:
+
+    images_list = os.listdir(args.video_path)
+    images_list = [os.path.join(args.video_path, image) for image in images_list]
+        
     torch.manual_seed(args.seed)
     torch.set_grad_enabled(False)
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -41,8 +45,8 @@ def main(args):
     model.eval()
 
     os.makedirs(args.output_dir, exist_ok=True)
-    dataset = ImageDataset(args.video_path)
-    data_loader = DataLoader(dataset, batch_size=128, num_workers=16)
+    dataset = ImageDataset(images_list)
+    data_loader = DataLoader(dataset, batch_size=8, num_workers=16)
 
     for image_tensors, image_paths in tqdm(data_loader):
         image_tensors = image_tensors.to(device)
@@ -55,7 +59,10 @@ def main(args):
         
         # save the video feature
         img_embeddings = img_embeddings.cpu().numpy()
-        for img_embedding, image_path in zip(img_embeddings, image_paths):
+        for image_tensor, img_embedding, image_path in zip(image_tensors, img_embeddings, image_paths):
+            if torch.all(torch.eq(image_tensor, torch.zeros([8, 3, 224, 224]).to(device))):
+                print("ERROR: video frames shape mismatch:", image_tensor.shape)
+                continue
             save_path = image_path.replace(args.video_path, args.output_dir).replace('.mp4', '.npy').replace('.avi', '.npy').replace('.mkv', '.npy').replace('.jpg', '.npy').replace('.png', '.npy')
             np.save(save_path, img_embedding)
 
@@ -65,5 +72,6 @@ if __name__ == "__main__":
     parser.add_argument("--video-path", type=str, default='dataset/pretrain_images')
     parser.add_argument("--output-dir", type=str, default='dataset/pretrain_images_features')
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--type", type=str, default='image')
     args = parser.parse_args()
     main(args)

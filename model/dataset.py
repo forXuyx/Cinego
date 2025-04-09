@@ -21,36 +21,56 @@ def video2image(video_path, num_frames=4, size=224):
             Normalize((0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)),
         ])(image)
 
+    # 创建默认返回值
+    default_tensor = torch.zeros((num_frames, 3, size, size), dtype=torch.float32)
+    
     # 如果是视频
     if video_path.endswith('.mp4') or video_path.endswith('.avi') or video_path.endswith('.mkv'):
-        container = av.open(video_path)
-        video_stream = container.streams.video[0]
-        
-        # 解码所有帧
-        frames = [frame for frame in container.decode(video_stream)]
-        total_frames = len(frames)
-        if total_frames == 0:
-            print("ERROR: problem reading video file:", video_path)
-            return torch.zeros([1, 3, size, size], dtype=torch.float32)
-        
-        # 均匀选择 num_frames 帧
-        indices = np.linspace(0, total_frames - 1, num_frames, dtype=int)
-        images = []
-        for i in indices:
-            # 将 pyAV 的帧转换为 PIL Image
-            pil_img = frames[i].to_image()
-            img_tensor = preprocess(size, pil_img)
-            images.append(img_tensor.numpy())
-        
-        images = np.stack(images, axis=0)
-        video_frames = torch.tensor(images)
+        try:
+            container = av.open(video_path)
+            video_stream = container.streams.video[0]
+            
+            # 解码所有帧
+            frames = [frame for frame in container.decode(video_stream)]
+            total_frames = len(frames)
+            if total_frames == 0:
+                print(f"ERROR: No frames found in video file: {video_path}")
+                return default_tensor
+            
+            # 均匀选择 num_frames 帧
+            indices = np.linspace(0, total_frames - 1, num_frames, dtype=int)
+            images = []
+            for i in indices:
+                # 将 pyAV 的帧转换为 PIL Image
+                pil_img = frames[i].to_image()
+                img_tensor = preprocess(size, pil_img)
+                images.append(img_tensor.numpy())
+            
+            images = np.stack(images, axis=0)
+            video_frames = torch.tensor(images)
+            if video_frames.shape[0] != num_frames:
+                print(f"ERROR: video frames shape mismatch: {video_frames.shape}")
+                return default_tensor
+            
+            return video_frames
+        except Exception as e:
+            print(f"ERROR processing video {video_path}: {str(e)}")
+            return default_tensor
+            
     # 如果是图片
     elif video_path.endswith('.jpg') or video_path.endswith('.png'):
-        image = Image.open(video_path)
-        image = preprocess(size, image)
-        video_frames = torch.stack([image], dim=0)
-    
-    return video_frames
+        try:
+            image = Image.open(video_path)
+            image = preprocess(size, image)
+            # 复制单帧图像以达到所需帧数
+            video_frames = image.unsqueeze(0).repeat(num_frames, 1, 1, 1)
+            return video_frames
+        except Exception as e:
+            print(f"ERROR processing image {video_path}: {str(e)}")
+            return default_tensor
+    else:
+        print(f"ERROR: Unsupported file format: {video_path}")
+        return default_tensor
 
 
 class ImageDataset(Dataset):

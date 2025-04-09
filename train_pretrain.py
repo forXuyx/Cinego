@@ -100,18 +100,14 @@ def train_epoch(epoch, wandb):
 
 def init_model(model_config: LMConfig):
     tokenizer = AutoTokenizer.from_pretrained('model/text_tokenizer')
-    moe_path = '_moe' if model_config.use_moe else ''
-    # 加载纯语言模型权重
-    ckp = f'out/pretrain_videolm_{model_config.dim}{moe_path}.pth'
     model = Cinego(model_config)
-    if os.path.exists(ckp):
-        state_dict = torch.load(ckp, map_location=args.device)
-        model.load_state_dict(state_dict, strict=False)
 
     # 冻结除vision_proj和video_summarizer外的所有参数
     for name, param in model.named_parameters():
         param.requires_grad = False
-        if 'vision_proj' or 'video_summarizer' in name:
+        if 'vision_proj' in name:
+            param.requires_grad = True
+        if 'video_summarizer' in name:
             param.requires_grad = True
     # 可训练
     if hasattr(model, "layers"):
@@ -149,7 +145,7 @@ if __name__ == "__main__":
     parser.add_argument("--wandb_project", type=str, default="Cinego")
     parser.add_argument("--num_workers", type=int, default=8)
     parser.add_argument("--data_path", type=str, default="dataset/pretrain_vlm_data.jsonl")
-    parser.add_argument("--images_path", type=str, default="dataset/pretrain_images_features")
+    parser.add_argument("--images_path", type=str, default="dataset/pretrain_images")
     parser.add_argument("--ddp", action="store_true")
     parser.add_argument("--use_feature", action="store_true")
     parser.add_argument("--accumulation_steps", type=int, default=1)

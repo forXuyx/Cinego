@@ -304,30 +304,12 @@ class VideoSummarizer(nn.Module):
         super().__init__()
         self.num_layers = num_layers
 
-        # 创建若干层 CrossAttentionBlock，用于空间和时间两条分支
         self.cross_attn_s = nn.ModuleList([
             CrossAttentionBlock(embed_dim, num_heads, dropout) 
             for _ in range(num_layers)
         ])
-        self.cross_attn_t = nn.ModuleList([
-            CrossAttentionBlock(embed_dim, num_heads, dropout) 
-            for _ in range(num_layers)
-        ])
 
-        # 定义两组可学习的 Query：分别用于空间 (s) 和时间 (t)
         self.query_s = nn.Parameter(torch.randn(1, n_queries, embed_dim))
-        self.query_t = nn.Parameter(torch.randn(1, n_queries, embed_dim))
-
-        self.positional_encoding = self.create_position_encoding(2048, embed_dim)
-        
-    def create_position_encoding(self, max_len, D):
-        pe = torch.zeros(max_len, D)
-        position = torch.arange(0, max_len).unsqueeze(1).float()
-        div_term = torch.exp(torch.arange(0, D, 2).float() * -(math.log(10000.0) / D))
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0)
-        return pe
 
     def forward(self, F_v):
         """
@@ -335,21 +317,12 @@ class VideoSummarizer(nn.Module):
         返回: (B, n_queries, D) 的视频表征
         """
         B, N, P, D = F_v.shape
-        # 将所有帧的 patch/Token 拉平为一个序列
         F_v = F_v.view(B, N*P, D)  # (B, N*197, D)
 
-        # 通过pe加入时序信息（不知道是否合理）
-        # position_enc = self.positional_encoding[:, :N*P].to(F_v.device)
-        # F_t = F_v + position_enc
-
         Q_s = self.query_s.expand(B, -1, -1).contiguous()
-        Q_t = self.query_t.expand(B, -1, -1).contiguous()
 
         for i in range(self.num_layers):
             F_s, _ = self.cross_attn_s[i](Q_s, torch.cat([F_v, Q_s], dim=1), torch.cat([F_v, Q_s], dim=1))
-            F_t, _ = self.cross_attn_t[i](Q_t, torch.cat([F_v, Q_t], dim=1), torch.cat([F_v, Q_t], dim=1))
             Q_s = F_s
-            Q_t = F_t
 
-        F_hat_v = Q_s + Q_t
-        return F_hat_v
+        return Q_s
