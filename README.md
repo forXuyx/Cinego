@@ -95,7 +95,7 @@ python scripts/train/train_sft_512_8.sh
 确保需要测试的模型`*.pth`文件位于`./out/`目录下。
 
 ```bash
-python eval_model.py
+bash scripts/eval/eval_512_8.sh
 ```
 
 > [!NOTE]
