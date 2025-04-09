@@ -23,7 +23,7 @@
 
 - 请确保具有完善的训练环境（请参照Minimind-V的README.md）
 - 请参照Minimind-V准备Clip模型以及text tokenizer（这里你可以自己重新训练一个，本项目直接用的minimind自带的tokenizer）
-- 请根据自己需求下载数据集以及checkpoint（我在这里后续会贴出所有数据的链接）
+- 请根据自己需求下载数据集以及checkpoint
 
 ### 第0步
 
@@ -75,13 +75,19 @@ python train_sft.py
 python eval_model.py
 ```
 
-## 📌 数据介绍与训练策略
+## 📌 数据介绍
 
 在先前的项目中我选取了LLaVA-Video-178K数据集中的一个子集作为Pretrain以及SFT数据集，这是不合规的，但当初只是作为一个toy项目来做的，所以没有考虑那么多，这也导致训练出来的模型存在很大的幻视，但我发现有部分朋友在关注我这个项目，所以我现在想尝试将他做的好一点哈哈哈（大家都可以参与进来！）<br/>
 
 目前所选数据集：
-- Pretrain数据集：与Minimind中所选用的Pretrain数据集保持一致（LLaVA-Video-178K），Pretrain阶段我们会更新VideoSummary以及后接的映射层以及LLM最后一层的参数，这样做的目的是得到良好的通用视觉特征表示
-- SFT数据集：使用了来自[VideoChatGPT](https://huggingface.co/datasets/lmms-lab/VideoChatGPT)大概180G的视频数据（忒大了！！！），SFT阶段我们会开放模型的全部参数进行微调
+- Pretrain数据集：与Minimind中所选用的Pretrain数据集保持一致（LLaVA-Video-178K）
+- SFT数据集：使用了来自[VideoChatGPT](https://huggingface.co/datasets/lmms-lab/VideoChatGPT)大概180G的视频数据集
+
+## 📌 数据以及checkpoint下载
+
+- SFT文本对：[百度网盘](https://pan.baidu.com/s/1CXRDig2P-Fm7D73kqJmfvA?pwd=x4fn)
+- SFT视频数据：[百度网盘](https://pan.baidu.com/share/init?surl=0hJ_U7wVmYTUo75YHc_n8g&pwd=g1hf)
+- SFT视频特征数据（建议使用）：上传中......
 
 
 ## 📌 Model Structure
