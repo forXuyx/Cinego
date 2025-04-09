@@ -26,6 +26,28 @@
 - 请参照Minimind-V准备Minimind基座模型
 - 请根据自己需求下载数据集以及checkpoint
 
+**下载文件存放结构**
+
+```bash
+Cinego
+├── out
+│   ├── lm_512.pth
+│   ├── lm_768.pth
+│   ├── pretrain_videolm_512.pth
+│   ├── pretrain_videolm_768.pth
+│   ├── sft_videolm_512.pth
+│   └── sft_videolm_768.pth
+├── dataset
+│   ├── pretrain_vlm_data.jsonl
+│   ├── pretrain_images
+│   ├── sft_vlm_data_video.jsonl
+│   ├── sft_video_features
+│   └── eval_videos
+├── model
+│   ├── text_tokenizer
+│   └── vision_model
+```
+
 ### 第0步
 
 ```bash
@@ -53,7 +75,7 @@ streamlit run web_demo.py
 **1.1 预训练**
 
 ```bash
-python train_pretrain.py
+bash scripts/train/train_pretrain_512_8.sh
 ```
 
 > 执行预训练，得到 `pretrain_videolm_*.pth` 作为预训练的输出权重（其中*为模型的dimension，默认为512）
@@ -62,7 +84,7 @@ python train_pretrain.py
 **1.2 监督微调**
 
 ```bash
-python train_sft.py
+python scripts/train/train_sft_512_8.sh
 ```
 
 > 执行监督微调，得到 `sft_videolm_*.pth` 作为指令微调的输出权重
@@ -75,6 +97,9 @@ python train_sft.py
 ```bash
 python eval_model.py
 ```
+
+> [!NOTE]
+> 以上运行脚本均可根据自身情况自行修改，详情请见`scripts`目录下的脚本文件。
 
 ## 📌 数据介绍
 
