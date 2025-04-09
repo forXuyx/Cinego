@@ -118,6 +118,8 @@ bash scripts/eval/eval_512_8.sh
 - tokenizer：[百度网盘](https://pan.baidu.com/s/1bb0HDw5lmO1BYxr3WEoreQ) (其实就是用Minimind的hq数据重新训了一遍哈哈哈)
 - 全部文件：上传中......
 
+> [!NOTE]
+> 我的所以数据均位于百度网盘，对于Linux用户，我建议使用[bypy + aria2](https://lala.im/7182.html)加速下载。
 
 ## 📌 Model Structure
 
