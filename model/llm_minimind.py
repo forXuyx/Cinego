@@ -1,4 +1,7 @@
 import math
+import struct
+import inspect
+import time
 
 from .LMConfig import LMConfig
 from typing import Any, Optional, Tuple, List
@@ -6,6 +9,8 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
+from transformers import PreTrainedModel
+from transformers.modeling_outputs import CausalLMOutputWithPast
 
 
 class RMSNorm(torch.nn.Module):
@@ -250,8 +255,9 @@ class MOEFeedForward(nn.Module):
             expert_cache.scatter_add_(0, exp_token_idx.view(-1, 1).repeat(1, x.shape[-1]), expert_out)
 
         return expert_cache
-    
-class LLMBlock(nn.Module):
+
+
+class MiniMindBlock(nn.Module):
     def __init__(self, layer_id: int, config: LMConfig):
         super().__init__()
         self.n_heads = config.n_heads
@@ -274,55 +280,97 @@ class LLMBlock(nn.Module):
         h = x + h_attn
         out = h + self.feed_forward(self.ffn_norm(h))
         return out, past_kv
-    
-# 论文GPT4Video核心组件复现
-class CrossAttentionBlock(nn.Module):
-    def __init__(self, embed_dim=768, num_heads=8, dropout=0.1):
-        super().__init__()
-        # PyTorch 自带的多头注意力层
-        self.mha = nn.MultiheadAttention(
-            embed_dim=embed_dim,
-            num_heads=num_heads,
-            dropout=dropout,
-            batch_first=True  # 输入输出为 (B, S, D)
-        )
-        self.dropout = nn.Dropout(dropout)
 
-    def forward(self, Q, K, V):
-        attn_out, attn_weights = self.mha(Q, K, V)  # (B, seq_len, D), (B, seq_len, seq_len)
-        attn_out = self.dropout(attn_out)
-        return attn_out, attn_weights
 
-# 为了更轻量化，我们的num_layers选择为1
-class VideoSummarizer(nn.Module):
-    def __init__(self, 
-                 embed_dim=768,
-                 n_queries=197, 
-                 num_heads=8, 
-                 num_layers=1, 
-                 dropout=0.1):
-        super().__init__()
-        self.num_layers = num_layers
+class MiniMindLM(PreTrainedModel):
+    config_class = LMConfig
 
-        self.cross_attn_s = nn.ModuleList([
-            CrossAttentionBlock(embed_dim, num_heads, dropout) 
-            for _ in range(num_layers)
-        ])
+    def __init__(self, params: LMConfig = None):
+        self.params = params or LMConfig()
+        super().__init__(self.params)
+        self.vocab_size, self.n_layers = params.vocab_size, params.n_layers
+        self.tok_embeddings = nn.Embedding(params.vocab_size, params.dim)
+        self.dropout = nn.Dropout(params.dropout)
+        self.layers = nn.ModuleList([MiniMindBlock(l, params) for l in range(self.n_layers)])
+        self.norm = RMSNorm(params.dim, eps=params.norm_eps)
+        self.output = nn.Linear(params.dim, params.vocab_size, bias=False)
+        self.tok_embeddings.weight = self.output.weight
+        self.register_buffer("pos_cis",
+                             precompute_pos_cis(dim=params.dim // params.n_heads, theta=params.rope_theta),
+                             persistent=False)
+        self.OUT = CausalLMOutputWithPast()
 
-        self.query_s = nn.Parameter(torch.randn(1, n_queries, embed_dim))
+    def forward(self,
+                input_ids: Optional[torch.Tensor] = None,
+                past_key_values: Optional[List[Tuple[torch.Tensor, torch.Tensor]]] = None,
+                use_cache: bool = False,
+                **args):
+        past_key_values = past_key_values or [None] * len(self.layers)
+        start_pos = args.get('start_pos', 0)
+        h = self.dropout(self.tok_embeddings(input_ids))
+        pos_cis = self.pos_cis[start_pos:start_pos + input_ids.size(1)]
+        past_kvs = []
+        for l, layer in enumerate(self.layers):
+            h, past_kv = layer(
+                h, pos_cis,
+                past_key_value=past_key_values[l],
+                use_cache=use_cache
+            )
+            past_kvs.append(past_kv)
+        logits = self.output(self.norm(h))
+        aux_loss = sum(l.feed_forward.aux_loss for l in self.layers if isinstance(l.feed_forward, MOEFeedForward))
+        self.OUT.__setitem__('logits', logits)
+        self.OUT.__setitem__('aux_loss', aux_loss)
+        self.OUT.__setitem__('past_key_values', past_kvs)
+        return self.OUT
 
-    def forward(self, F_v):
-        """
-        F_v: (B, N, 197, D) -> (B, N*197, D)
-        返回: (B, n_queries, D) 的视频表征
-        """
-        B, N, P, D = F_v.shape
-        F_v = F_v.view(B, N*P, D)  # (B, N*197, D)
+    @torch.inference_mode()
+    def generate(self, input_ids, eos_token_id=2, max_new_tokens=1024, temperature=0.75, top_p=0.90,
+                 stream=False, rp=1., use_cache=True, pad_token_id=0, **args):
+        # 流式生成
+        if stream:
+            return self._stream(input_ids, eos_token_id, max_new_tokens, temperature, top_p, rp, use_cache, **args)
 
-        Q_s = self.query_s.expand(B, -1, -1).contiguous()
+        # 直接生成
+        generated = []
+        for i in range(input_ids.size(0)):
+            non_pad = input_ids[i][input_ids[i] != pad_token_id].unsqueeze(0)
+            out = self._stream(non_pad, eos_token_id, max_new_tokens, temperature, top_p, rp, use_cache, **args)
+            tokens_list = [tokens[:, -1:] for tokens in out]
+            gen = torch.cat(tokens_list, dim=-1) if tokens_list else non_pad
+            full_sequence = torch.cat([non_pad, gen], dim=-1)
+            generated.append(full_sequence)
+        max_length = max(seq.size(1) for seq in generated)
+        generated = [
+            torch.cat(
+                [seq, torch.full((1, max_length - seq.size(1)), pad_token_id, dtype=seq.dtype, device=seq.device)],
+                dim=-1)
+            for seq in generated
+        ]
+        return torch.cat(generated, dim=0)
 
-        for i in range(self.num_layers):
-            F_s, _ = self.cross_attn_s[i](Q_s, torch.cat([F_v, Q_s], dim=1), torch.cat([F_v, Q_s], dim=1))
-            Q_s = F_s
-
-        return Q_s
+    def _stream(self, input_ids, eos_token_id, max_new_tokens, temperature, top_p, rp, use_cache, **args):
+        start, first_seq, past_kvs = input_ids.shape[1], True, None
+        while input_ids.shape[1] < max_new_tokens - 1:
+            if first_seq or not use_cache:
+                out, first_seq = self(input_ids, past_key_values=past_kvs, use_cache=use_cache, **args), False
+            else:
+                out = self(input_ids[:, -1:], past_key_values=past_kvs, use_cache=use_cache,
+                           start_pos=input_ids.shape[1] - 1, **args)
+            logits, past_kvs = out.logits[:, -1, :], out.past_key_values
+            logits[:, list(set(input_ids.tolist()[0]))] /= rp
+            logits /= (temperature + 1e-9)
+            if top_p is not None and top_p < 1.0:
+                sorted_logits, sorted_indices = torch.sort(logits, descending=True, dim=-1)
+                sorted_probs = F.softmax(sorted_logits, dim=-1)
+                cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+                sorted_indices_to_remove = cumulative_probs > top_p
+                sorted_indices_to_remove[:, 1:] = sorted_indices_to_remove[:, :-1].clone()
+                sorted_indices_to_remove[:, 0] = False
+                indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
+                logits[indices_to_remove] = -float('Inf')
+            input_ids_next = torch.multinomial(F.softmax(logits, dim=-1), num_samples=1)
+            input_ids = torch.cat((input_ids, input_ids_next), dim=1)
+            yield input_ids[:, start:]
+            if input_ids_next.item() == eos_token_id:
+                break

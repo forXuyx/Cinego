@@ -14,25 +14,67 @@ from transformers.modeling_outputs import CausalLMOutputWithPast
 from transformers import CLIPModel
 from einops import rearrange
 
-from .llm_modules import *
+from .llm_minimind import *
 
-class Cinego(PreTrainedModel):
+# 论文GPT4Video核心组件复现
+class CrossAttentionBlock(nn.Module):
+    def __init__(self, embed_dim=768, num_heads=8, dropout=0.1):
+        super().__init__()
+        # PyTorch 自带的多头注意力层
+        self.mha = nn.MultiheadAttention(
+            embed_dim=embed_dim,
+            num_heads=num_heads,
+            dropout=dropout,
+            batch_first=True  # 输入输出为 (B, S, D)
+        )
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, Q, K, V):
+        attn_out, attn_weights = self.mha(Q, K, V)  # (B, seq_len, D), (B, seq_len, seq_len)
+        attn_out = self.dropout(attn_out)
+        return attn_out, attn_weights
+
+# 为了更轻量化，我们的num_layers选择为1
+class VideoSummarizer(nn.Module):
+    def __init__(self, 
+                 embed_dim=768,
+                 n_queries=197, 
+                 num_heads=8, 
+                 num_layers=1, 
+                 dropout=0.1):
+        super().__init__()
+        self.num_layers = num_layers
+
+        self.cross_attn_s = nn.ModuleList([
+            CrossAttentionBlock(embed_dim, num_heads, dropout) 
+            for _ in range(num_layers)
+        ])
+
+        self.query_s = nn.Parameter(torch.randn(1, n_queries, embed_dim))
+
+    def forward(self, F_v):
+        """
+        F_v: (B, N, 197, D) -> (B, N*197, D)
+        返回: (B, n_queries, D) 的视频表征
+        """
+        B, N, P, D = F_v.shape
+        F_v = F_v.view(B, N*P, D)  # (B, N*197, D)
+
+        Q_s = self.query_s.expand(B, -1, -1).contiguous()
+
+        for i in range(self.num_layers):
+            F_s, _ = self.cross_attn_s[i](Q_s, torch.cat([F_v, Q_s], dim=1), torch.cat([F_v, Q_s], dim=1))
+            Q_s = F_s
+
+        return Q_s
+
+
+class Cinego(MiniMindLM):
     config_class = LMConfig
 
     def __init__(self, params: LMConfig = None):
         self.params = params or LMConfig()
         super().__init__(self.params)
-        self.vocab_size, self.n_layers = params.vocab_size, params.n_layers
-        self.tok_embeddings = nn.Embedding(params.vocab_size, params.dim)
-        self.dropout = nn.Dropout(params.dropout)
-        self.layers = nn.ModuleList([LLMBlock(l, params) for l in range(self.n_layers)])
-        self.norm = RMSNorm(params.dim, eps=params.norm_eps)
-        self.output = nn.Linear(params.dim, params.vocab_size, bias=False)
-        self.tok_embeddings.weight = self.output.weight
-        self.register_buffer("pos_cis",
-                             precompute_pos_cis(dim=params.dim // params.n_heads, theta=params.rope_theta),
-                             persistent=False)
-        self.OUT = CausalLMOutputWithPast()
 
         self.vision_proj = nn.Linear(params.vision_dim, params.dim)
         self.vision_encoder = self.__class__.get_vision_model()

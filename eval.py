@@ -111,7 +111,7 @@ if __name__ == "__main__":
     # 视频推理
     if args.use_multi == 1:
         image_dir = 'dataset/eval_videos/'
-        prompt = f"{model.params.image_special_token}\n描述一下这个视频的内容。"
+        prompt = f"{model.params.image_special_token}\nDescribe what this video is about."
 
         for image_file in os.listdir(image_dir):
             image_path = os.path.join(image_dir, image_file)

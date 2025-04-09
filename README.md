@@ -23,6 +23,7 @@
 
 - 请确保具有完善的训练环境（请参照Minimind-V的README.md）
 - 请参照Minimind-V准备Clip模型以及text tokenizer（这里你可以自己重新训练一个，本项目直接用的minimind自带的tokenizer）
+- 请参照Minimind-V准备Minimind基座模型
 - 请根据自己需求下载数据集以及checkpoint
 
 ### 第0步
