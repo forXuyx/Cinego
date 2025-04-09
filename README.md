@@ -36,7 +36,7 @@ git clone https://github.com/forXuyx/Cinego.git
 #### 1.命令行问答
 
 ```bash
-python eval_model.py
+python eval.py
 ```
 
 #### 2.或启动WebUI （待做）
@@ -88,6 +88,7 @@ python eval_model.py
 - SFT文本对：[百度网盘](https://pan.baidu.com/s/1CXRDig2P-Fm7D73kqJmfvA?pwd=x4fn)
 - SFT视频数据：[百度网盘](https://pan.baidu.com/share/init?surl=0hJ_U7wVmYTUo75YHc_n8g&pwd=g1hf)
 - SFT视频特征数据（建议使用）：上传中......
+- 验证数据集：[百度网盘](https://pan.baidu.com/s/14I5ta7rnhzBmuuEBUij4vQ)
 
 
 ## 📌 Model Structure
