@@ -100,7 +100,12 @@ def train_epoch(epoch, wandb):
 
 def init_model(model_config: LMConfig):
     tokenizer = AutoTokenizer.from_pretrained('model/text_tokenizer')
+    moe_path = '_moe' if model_config.use_moe else ''
+    # 加载纯语言模型权重
+    ckp = f'out/lm_{model_config.dim}{moe_path}.pth'
     model = Cinego(model_config)
+    state_dict = torch.load(ckp, map_location=args.device)
+    model.load_state_dict(state_dict, strict=False)
 
     # 冻结除vision_proj和video_summarizer外的所有参数
     for name, param in model.named_parameters():

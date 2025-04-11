@@ -147,6 +147,6 @@ class ImageDataset(Dataset):
             return X, Y, loss_mask, image_feature
         else:
             image_path = f'{self.images_path}/{image_name}'
-            image_tensor = video2image(image_path, num_frames=32, size=224)
+            image_tensor = video2image(image_path, num_frames=8, size=224)
 
             return X, Y, loss_mask, image_tensor

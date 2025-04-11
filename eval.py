@@ -59,9 +59,9 @@ if __name__ == "__main__":
     # 默认视频推理，设置为2为多图推理
     parser.add_argument('--use_multi', default=1, type=int)
     parser.add_argument('--stream', default=True, type=bool)
-    # 由于我的pretrain是在纯图片数据上训练的，所以对视频的理解不好（情有可原，毕竟没见过视频，但是能大概知道视频里面是什么）
+    # 0用于单图单轮对话，1用于单图单轮或多轮对话，2用于视频单轮或多轮对话，3用于多图涌现（不一定好）
     parser.add_argument('--model_mode', default=0, type=int,
-                        help="0: Pretrain模型，1: SFT模型，2: SFT-多图涌现")
+                        help="0: Pretrain模型，1: SFT图片模型，2: SFT视频模型，3: SFT多图涌现模型")
     args = parser.parse_args()
 
     lm_config = LMConfig(dim=args.dim, n_layers=args.n_layers, max_seq_len=args.max_seq_len, use_moe=args.use_moe)
@@ -111,7 +111,7 @@ if __name__ == "__main__":
     # 视频推理
     if args.use_multi == 1:
         image_dir = 'dataset/eval_videos/'
-        prompt = f"{model.params.image_special_token}\nDescribe what this video is about."
+        prompt = f"{model.params.image_special_token}\n描述一下这个视频的内容。"
 
         for image_file in os.listdir(image_dir):
             image_path = os.path.join(image_dir, image_file)
