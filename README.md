@@ -10,9 +10,10 @@
 
 **项目功能清单（含待做）**
 
-- [ ] 完善UI界面
-- [ ] 实现多轮对话训练逻辑
-- [ ] 使用统一语言的数据集（首要需要解决的，感觉目前生成的全是胡言乱语......）
+- [ ] 为了更好的适配，我们决定训练一个英文tokenizer
+- [x] 完善UI界面，实现UI界面多轮对话逻辑
+- [x] 实现多轮对话训练逻辑
+- [x] 使用统一语言的数据集（首要需要解决的，感觉目前生成的全是胡言乱语......）
 - [ ] 进行多Stage的SFT（图片SFT -> 多轮对话图片SFT -> 视频SFT） 
 - [x] 复现GPT4Video中的VideoSummary结构
 - [x] 实现数据特征的预提取（相当于少了clip获取embedding那一块的计算量，训练稍微能快一点）
@@ -23,9 +24,8 @@
 **开始前注意事项**
 
 - 请确保具有完善的训练环境（请参照Minimind-V的README.md）
-- 请参照Minimind-V准备Clip模型以及text tokenizer（这里你可以自己重新训练一个，本项目直接用的minimind自带的tokenizer）
 - 请参照Minimind-V准备Minimind基座模型
-- 请根据自己需求下载数据集以及checkpoint
+- 请根据自己需求下载数据集以及checkpoint和tokenizer
 
 **下载文件存放结构**
 
@@ -66,7 +66,7 @@ python eval.py
 #### 2.或启动WebUI （待做）
 
 ```bash
-streamlit run web_demo.py
+python run webui.py
 ```
 
 ### Ⅱ 从0开始自己训练

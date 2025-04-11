@@ -23,7 +23,7 @@ def count_parameters(model):
 def init_model(lm_config, device):
     tokenizer = AutoTokenizer.from_pretrained('model/text_tokenizer')
     moe_path = '_moe' if args.use_moe else ''
-    modes = {0: 'pretrain_videolm', 1: 'sft_videolm'}
+    modes = {0: 'pretrain_videolm', 1: 'sft_videolm_image', 2: 'sft_videolm_video', 3: 'sft_videolm_video'}
     ckp = f'./{args.out_dir}/{modes[args.model_mode]}_{args.dim}{moe_path}.pth'
     model = Cinego(lm_config)
     state_dict = torch.load(ckp, map_location=device)
@@ -46,7 +46,7 @@ def setup_seed(seed):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Chat with MiniMind")
+    parser = argparse.ArgumentParser(description="Chat with Cinego")
     parser.add_argument('--lora_name', default='None', type=str)
     parser.add_argument('--out_dir', default='out', type=str)
     parser.add_argument('--temperature', default=0.65, type=float)
@@ -56,8 +56,6 @@ if __name__ == "__main__":
     parser.add_argument('--n_layers', default=8, type=int)
     parser.add_argument('--max_seq_len', default=8192, type=int)
     parser.add_argument('--use_moe', default=False, type=bool)
-    # 默认视频推理，设置为2为多图推理
-    parser.add_argument('--use_multi', default=1, type=int)
     parser.add_argument('--stream', default=True, type=bool)
     # 0用于单图单轮对话，1用于单图单轮或多轮对话，2用于视频单轮或多轮对话，3用于多图涌现（不一定好）
     parser.add_argument('--model_mode', default=0, type=int,
@@ -108,16 +106,20 @@ if __name__ == "__main__":
             print('\n')
 
 
-    # 视频推理
-    if args.use_multi == 1:
-        image_dir = 'dataset/eval_videos/'
-        prompt = f"{model.params.image_special_token}\n描述一下这个视频的内容。"
+    # 图像推理
+    if args.model_mode == 0 or args.model_mode == 1:
+        image_dir = 'dataset/eval_images/'
+        prompt = f"{model.params.image_special_token}\ndescribe the content of this image."
 
         for image_file in os.listdir(image_dir):
             image_path = os.path.join(image_dir, image_file)
             pixel_tensors = video2image(image_path, num_frames=8, size=224).to(args.device).unsqueeze(0)
             chat_with_vlm(prompt, pixel_tensors, image_file)
 
-    # 多图涌现（待实现）
-    if args.use_multi == 2:
+    # 视频推理
+    if args.model_mode == 2:
+        pass
+
+    # 多图涌现推理
+    if args.model_mode == 3:
         pass

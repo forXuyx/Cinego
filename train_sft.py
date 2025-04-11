@@ -18,7 +18,7 @@ from torch.utils.data import DataLoader, DistributedSampler
 from transformers import AutoTokenizer, AutoModel
 from model.llm_model import Cinego
 from model.LMConfig import LMConfig
-from model.dataset import VideoDataset
+from model.dataset import ImageDataset
 
 warnings.filterwarnings('ignore')
 
@@ -86,7 +86,10 @@ def train_epoch(epoch, wandb):
         if (step + 1) % args.save_interval == 0 and (not ddp or dist.get_rank() == 0):
             model.eval()
             moe_path = '_moe' if model_config.use_moe else ''
-            ckp = f'{args.save_dir}/sft_videolm_{model_config.dim}{moe_path}.pth'
+            if args.stage == 'image':
+                ckp = f'{args.save_dir}/sft_videolm_image_{model_config.dim}{moe_path}.pth'
+            elif args.stage == 'video':
+                ckp = f'{args.save_dir}/sft_videolm_video_{model_config.dim}{moe_path}.pth'
             if isinstance(model, torch.nn.parallel.DistributedDataParallel):
                 state_dict = model.module.state_dict()
             else:
@@ -101,8 +104,11 @@ def train_epoch(epoch, wandb):
 def init_model(model_config: LMConfig):
     tokenizer = AutoTokenizer.from_pretrained('model/text_tokenizer')
     moe_path = '_moe' if model_config.use_moe else ''
-    # 加载纯语言模型权重
-    ckp = f'out/pretrain_videolm_{model_config.dim}{moe_path}.pth'
+    # 加载预训练模型
+    if args.stage == 'image':
+        ckp = f'out/pretrain_videolm_{model_config.dim}{moe_path}.pth'
+    elif args.stage == 'video':
+        ckp = f'out/sft_videolm_image_{model_config.dim}{moe_path}.pth'
     model = Cinego(model_config)
     if os.path.exists(ckp):
         state_dict = torch.load(ckp, map_location=args.device)
@@ -128,16 +134,16 @@ def init_distributed_mode():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Cinego Pretrain")
     parser.add_argument("--out_dir", type=str, default="out")
-    parser.add_argument("--epochs", type=int, default=20)
-    parser.add_argument("--batch_size", type=int, default=16)
-    parser.add_argument("--learning_rate", type=float, default=1e-6)
+    parser.add_argument("--epochs", type=int, default=6)
+    parser.add_argument("--batch_size", type=int, default=64)
+    parser.add_argument("--learning_rate", type=float, default=1e-5)
     parser.add_argument("--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--dtype", type=str, default="bfloat16")
     parser.add_argument("--use_wandb", default=False, action="store_true")
     parser.add_argument("--wandb_project", type=str, default="Cinego")
     parser.add_argument("--num_workers", type=int, default=8)
-    parser.add_argument("--data_path", type=str, default="dataset/video_data.jsonl")
-    parser.add_argument("--images_path", type=str, default="dataset/all_video")
+    parser.add_argument("--data_path", type=str, default="dataset/sft_vlm_data_image.jsonl")
+    parser.add_argument("--images_path", type=str, default="dataset/sft_images")
     parser.add_argument("--ddp", action="store_true")
     parser.add_argument("--accumulation_steps", type=int, default=1)
     parser.add_argument("--grad_clip", type=float, default=1.0)
@@ -149,6 +155,8 @@ if __name__ == "__main__":
     parser.add_argument('--n_layers', default=8, type=int)
     parser.add_argument('--max_seq_len', default=1536, type=int)
     parser.add_argument('--use_moe', default=False, type=bool)
+    # 图片sft或者视频sft
+    parser.add_argument('--stage', type=str, default='image', choices=['image', 'video'])
     args = parser.parse_args()
 
     model_config = LMConfig(dim=args.dim, n_layers=args.n_layers, max_seq_len=args.max_seq_len)
@@ -178,8 +186,8 @@ if __name__ == "__main__":
 
     model, tokenizer = init_model(model_config)
 
-    train_ds = VideoDataset(args.data_path, args.images_path, tokenizer,
-                            video_special_token=model_config.image_special_token,
+    train_ds = ImageDataset(args.data_path, args.images_path, tokenizer,
+                            image_special_token=model_config.image_special_token,
                             max_length=max_seq_len)
     train_sampler = DistributedSampler(train_ds) if ddp else None
     train_loader = DataLoader(
