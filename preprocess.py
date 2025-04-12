@@ -47,7 +47,7 @@ def main(args):
 
     os.makedirs(args.output_dir, exist_ok=True)
     dataset = ImageDataset(images_list, num_frames=args.num_frames)
-    data_loader = DataLoader(dataset, batch_size=128, num_workers=16)
+    data_loader = DataLoader(dataset, batch_size=args.batch_size, num_workers=args.num_workers)
 
     for image_tensors, image_paths in tqdm(data_loader):
         image_tensors = image_tensors.to(device)
@@ -75,5 +75,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--type", type=str, default='image')
     parser.add_argument("--num_frames", type=int, default=16)
+    parser.add_argument("--num_workers", type=int, default=8)
+    parser.add_argument("--batch_size", type=int, default=16)
     args = parser.parse_args()
     main(args)

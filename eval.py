@@ -23,7 +23,7 @@ def count_parameters(model):
 def init_model(lm_config, device):
     tokenizer = AutoTokenizer.from_pretrained('model/text_tokenizer')
     moe_path = '_moe' if args.use_moe else ''
-    modes = {0: 'pretrain_videolm', 1: 'sft_videolm_image', 2: 'sft_videolm_video', 3: 'sft_videolm_video'}
+    modes = {0: 'pretrain_videolm', 1: 'sft_videolm_image', 2: 'sft_videolm_video'}
     ckp = f'./{args.out_dir}/{modes[args.model_mode]}_{args.dim}{moe_path}.pth'
     model = Cinego(lm_config)
     state_dict = torch.load(ckp, map_location=device)
@@ -57,9 +57,10 @@ if __name__ == "__main__":
     parser.add_argument('--max_seq_len', default=8192, type=int)
     parser.add_argument('--use_moe', default=False, type=bool)
     parser.add_argument('--stream', default=True, type=bool)
-    # 0用于单图单轮对话，1用于单图单轮或多轮对话，2用于视频单轮或多轮对话，3用于多图涌现（不一定好）
+    parser.add_argument('--data_type', default=0, type=int,
+                        help="0: 单图，1: 多图，2: 视频")
     parser.add_argument('--model_mode', default=0, type=int,
-                        help="0: Pretrain模型，1: SFT图片模型，2: SFT视频模型，3: SFT多图涌现模型")
+                        help="0: Pretrain模型，1: SFT图片模型，2: SFT视频模型")
     args = parser.parse_args()
 
     lm_config = LMConfig(dim=args.dim, n_layers=args.n_layers, max_seq_len=args.max_seq_len, use_moe=args.use_moe)
@@ -106,20 +107,26 @@ if __name__ == "__main__":
             print('\n')
 
 
-    # 图像推理
-    if args.model_mode == 0 or args.model_mode == 1:
+    # 单图推理
+    if args.data_type == 0:
         image_dir = 'dataset/eval_images/'
-        prompt = f"{model.params.image_special_token}\ndescribe the content of this image."
+        prompt = f"{model.params.image_special_token}\nDescribe the image concisely."
 
         for image_file in os.listdir(image_dir):
             image_path = os.path.join(image_dir, image_file)
-            pixel_tensors = video2image(image_path, num_frames=8, size=224).to(args.device).unsqueeze(0)
+            pixel_tensors = video2image(image_path, num_frames=32, size=224).to(args.device).unsqueeze(0)
             chat_with_vlm(prompt, pixel_tensors, image_file)
 
+    # 多图推理（涌现）
+    if args.data_type == 1:
+        pass
+    
     # 视频推理
-    if args.model_mode == 2:
-        pass
+    if args.data_type == 2:
+        image_dir = 'dataset/eval_videos/'
+        prompt = f"{model.params.image_special_token}\nDescribe the video concisely."
 
-    # 多图涌现推理
-    if args.model_mode == 3:
-        pass
+        for image_file in os.listdir(image_dir):
+            image_path = os.path.join(image_dir, image_file)
+            pixel_tensors = video2image(image_path, num_frames=32, size=224).to(args.device).unsqueeze(0)
+            chat_with_vlm(prompt, pixel_tensors, image_file)
