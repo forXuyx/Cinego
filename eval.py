@@ -110,7 +110,7 @@ if __name__ == "__main__":
     # 单图推理
     if args.data_type == 0:
         image_dir = 'dataset/eval_images/'
-        prompt = f"{model.params.image_special_token}\nDescribe the image concisely."
+        prompt = f"{model.params.image_special_token}\nDescribe the image."
 
         for image_file in os.listdir(image_dir):
             image_path = os.path.join(image_dir, image_file)
@@ -119,12 +119,21 @@ if __name__ == "__main__":
 
     # 多图推理（涌现）
     if args.data_type == 1:
-        pass
+        image_dir = 'dataset/eval_images_mul/'
+        prompt = f"{model.params.image_special_token}\nCompare these two images."
+
+        for sub_dir in os.listdir(image_dir):
+            sub_dir_path = os.path.join(image_dir, sub_dir)
+            image_files = os.listdir(sub_dir_path)
+            image_paths = [os.path.join(sub_dir_path, image_file) for image_file in image_files]
+            pixel_tensors = torch.cat([video2image(image_path, num_frames=32, size=224).to(args.device) for
+                                       image_path in image_paths], dim=0).unsqueeze(0)
+            chat_with_vlm(prompt, pixel_tensors, sub_dir)
     
     # 视频推理
     if args.data_type == 2:
         image_dir = 'dataset/eval_videos/'
-        prompt = f"{model.params.image_special_token}\nDescribe the video concisely."
+        prompt = f"{model.params.image_special_token}\nDescribe the video."
 
         for image_file in os.listdir(image_dir):
             image_path = os.path.join(image_dir, image_file)

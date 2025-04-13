@@ -134,17 +134,18 @@ def init_distributed_mode():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Cinego Pretrain")
     parser.add_argument("--out_dir", type=str, default="out")
-    parser.add_argument("--epochs", type=int, default=32)
-    parser.add_argument("--batch_size", type=int, default=8)
+    parser.add_argument("--epochs", type=int, default=16)
+    parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--learning_rate", type=float, default=5e-6)
     parser.add_argument("--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--dtype", type=str, default="bfloat16")
     parser.add_argument("--use_wandb", default=False, action="store_true")
     parser.add_argument("--wandb_project", type=str, default="Cinego")
-    parser.add_argument("--num_workers", type=int, default=64)
-    parser.add_argument("--data_path", type=str, default="dataset/sft_vlm_data_image.jsonl")
-    parser.add_argument("--images_path", type=str, default="dataset/sft_images")
+    parser.add_argument("--num_workers", type=int, default=16)
+    parser.add_argument("--data_path", type=str, default="dataset/sft_vlm_data_video.jsonl")
+    parser.add_argument("--images_path", type=str, default="dataset/sft_video_features")
     parser.add_argument("--ddp", action="store_true")
+    parser.add_argument("--use_feature", action="store_true")
     parser.add_argument("--accumulation_steps", type=int, default=1)
     parser.add_argument("--grad_clip", type=float, default=1.0)
     parser.add_argument("--warmup_iters", type=int, default=0)
@@ -156,7 +157,7 @@ if __name__ == "__main__":
     parser.add_argument('--max_seq_len', default=1536, type=int)
     parser.add_argument('--use_moe', default=False, type=bool)
     # 图片sft或者视频sft
-    parser.add_argument('--stage', type=str, default='image', choices=['image', 'video'])
+    parser.add_argument('--stage', type=str, default='video', choices=['image', 'video'])
     args = parser.parse_args()
 
     model_config = LMConfig(dim=args.dim, n_layers=args.n_layers, max_seq_len=args.max_seq_len)
@@ -188,7 +189,7 @@ if __name__ == "__main__":
 
     train_ds = ImageDataset(args.data_path, args.images_path, tokenizer,
                             image_special_token=model_config.image_special_token,
-                            max_length=max_seq_len)
+                            max_length=max_seq_len, use_feature=args.use_feature)
     train_sampler = DistributedSampler(train_ds) if ddp else None
     train_loader = DataLoader(
         train_ds,

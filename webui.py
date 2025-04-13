@@ -17,7 +17,7 @@ def init_model(lm_config):
     tokenizer = AutoTokenizer.from_pretrained('model/text_tokenizer')
 
     moe_path = '_moe' if lm_config.use_moe else ''
-    ckp = f'./out/sft_videolm_image_{lm_config.dim}{moe_path}.pth'
+    ckp = f'./out/sft_videolm_video_{lm_config.dim}{moe_path}.pth'
     model = Cinego(lm_config)
     state_dict = torch.load(ckp, map_location=args.device)
     model.load_state_dict({k: v for k, v in state_dict.items() if 'mask' not in k}, strict=False)
@@ -75,14 +75,6 @@ def launch_gradio_server(server_name="0.0.0.0", server_port=7788):
     current_image_path = ""
 
     with gr.Blocks() as demo:
-        gr.HTML(f"""
-            <div style="text-align: center; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center;">
-                <img src="https://www.modelscope.cn/api/v1/studio/gongjy/MiniMind/repo?Revision=master&FilePath=images%2Flogo2.png&View=true" 
-                     style="height: 60px;">
-                <span style="margin: 0 0 0 1rem;font-size:40px;font-style: italic;font-weight:bold;">Hi, I'm MiniMind2-V</span>
-            </div>
-            """)
-
         with gr.Row():
             with gr.Column(scale=3):
                 def get_current_image_path(image):
@@ -95,7 +87,7 @@ def launch_gradio_server(server_name="0.0.0.0", server_port=7788):
 
                 with gr.Blocks() as iface:
                     with gr.Row():
-                        image_input = gr.Image(type="filepath", label="选择图片", height=650)
+                        image_input = gr.File(type="filepath", label="选择图片或视频", file_types=["image", "video"], height=650)
                     image_input.change(fn=get_current_image_path, inputs=image_input)
 
                 def update_parameters(temperature_, top_p_):
@@ -132,14 +124,16 @@ def launch_gradio_server(server_name="0.0.0.0", server_port=7788):
                         chat_history = []
                     
                     img_state = current_image_path
-                    user_message = f'{lm_config.image_special_token}\n{message}'
+                    user_message = f'{lm_config.image_special_token}{message}'
                     conv_state.append({"role": "user", "content": user_message})
                     
                     if is_first_message or is_new_image:
-                        image_html = f'<img src="gradio_api/file={current_image_path}" alt="Image" style="width:100px;height:auto;">'
-                        chat_history.append((f"{image_html} {message}", ""))
-                    else:
-                        chat_history.append((message, ""))
+                        if current_image_path.endswith(('.mp4', '.avi', '.mov', '.mkv')):  # 判断是否是视频文件
+                            video_html = f'<video width="320" height="240" controls><source src="gradio_api/file={current_image_path}" type="video/mp4">Your browser does not support the video tag.</video>'
+                            chat_history.append((f"{video_html} {message}", ""))
+                        else:  # 否则显示为图片
+                            image_html = f'<img src="gradio_api/file={current_image_path}" alt="Image" style="width:100px;height:auto;">'
+                            chat_history.append((f"{image_html} {message}", ""))
                         
                     yield chat_history, conv_state, img_state
                     
