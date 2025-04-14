@@ -2,22 +2,37 @@
 
 ## 📌 简介
 
-此项目继承自开源项目[MiniMind-V](https://github.com/jingyaogong/minimind-v),旨在扩展MiniMind-V实现视频理解功能，同时作为一个入门视频理解的入门教程😊。
+此项目继承自开源项目[MiniMind-V](https://github.com/jingyaogong/minimind-v),旨在扩展MiniMind-V实现视频理解功能，同时作为一个入门视频理解的入门教程😊。相比于MiniMind-V，我们仅增加了2M左右的参数。Let's go!
 
 > [!NOTE]
 > 请确保你已经熟悉了[MiniMind-V](https://github.com/jingyaogong/minimind-v)的基本使用和训练流程。
 
-
 **项目功能清单（含待做）**
 
-- [ ] 为了更好的适配，我们决定训练一个英文tokenizer
+- [ ] 清洗出更轻量用于训练的数据集
+- [x] 为了更好的适配，我们决定训练一个英文tokenizer
 - [x] 完善UI界面，实现UI界面多轮对话逻辑
 - [x] 实现多轮对话训练逻辑
 - [x] 使用统一语言的数据集（首要需要解决的，感觉目前生成的全是胡言乱语......）
-- [ ] 进行多Stage的SFT（图片SFT -> 多轮对话图片SFT -> 视频SFT） 
+- [x] 进行多Stage的SFT（图片SFT -> 多轮对话图片SFT -> 视频SFT） 
 - [x] 复现GPT4Video中的VideoSummary结构
 - [x] 实现数据特征的预提取（相当于少了clip获取embedding那一块的计算量，训练稍微能快一点）
 - [x] 修改dataset结构兼容图片、视频、抽取特征
+
+## 📌 推理结果
+
+> 对于验证集，我们挑选了来自sora的一些合成视频
+
+| Video Title              | Description                                                                                                                                               |
+|--------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Man on the cloud.mp4      | A man is seen kneeling on the ground, looking directly at the camera, then showing the viewer with his hands and the camera.                                |
+| Vlogger corgi.mp4         | A dog looks down at the seashore and on the sand, with the video ending with credits.                                                                     |
+| Italian pup.mp4           | A black and white dog sits on a window sill, with a camera panning around a house. The dog is seen walking down a sidewalk and running into a house.         |
+| Cat on the bed.mp4        | A black and white cat is sitting on a bed.                                                                                                                 |
+| Tokyo walk.mp4            | A woman walks into the room, takes a few sips of her drink, and leaves. She then proceeds to pull a broom down the sidewalk while continuing to talk.        |
+| Photorealistic train.mp4  | A small, blue and black train rushes past the track, with the yellow rail cement visible on the platform and a green track shown.                          |
+| Dogs downtown.mp4         | A white dog on a leash is groomed by a symphony, while a black dog runs into a standing dog. The dogs are seen running around.                             |
+| SUV in dust.mp4           | A yellow helicopter drives on a dirt road near a mountain, with a truck parked on the side of the road near the end.                                       |
 
 ## 📌 快速开始
 
