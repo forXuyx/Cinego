@@ -124,7 +124,10 @@ def launch_gradio_server(server_name="0.0.0.0", server_port=7788):
                         chat_history = []
                     
                     img_state = current_image_path
-                    user_message = f'{lm_config.image_special_token}{message}'
+                    if is_first_message or is_new_image:
+                        user_message = f'{lm_config.image_special_token}{message}'
+                    else:
+                        user_message = message
                     conv_state.append({"role": "user", "content": user_message})
                     
                     if is_first_message or is_new_image:
@@ -134,7 +137,10 @@ def launch_gradio_server(server_name="0.0.0.0", server_port=7788):
                         else:  # 否则显示为图片
                             image_html = f'<img src="gradio_api/file={current_image_path}" alt="Image" style="width:100px;height:auto;">'
                             chat_history.append((f"{image_html} {message}", ""))
-                        
+                    else:
+                        # 添加这个else分支，处理后续对话轮次的用户消息
+                        chat_history.append((message, ""))
+                    
                     yield chat_history, conv_state, img_state
                     
                     response = ""
@@ -185,7 +191,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Chat with Cinego")
     parser.add_argument('--lora_name', default='None', type=str)
     parser.add_argument('--out_dir', default='out', type=str)
-    parser.add_argument('--temperature', default=0.65, type=float)
+    parser.add_argument('--temperature', default=0.85, type=float)
     parser.add_argument('--top_p', default=0.85, type=float)
     parser.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu', type=str)
     parser.add_argument('--dim', default=768, type=int)
