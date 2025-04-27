@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="images/cinego.png" alt="logo" width="300"/>
+<img src="images/cinego.png" alt="logo" width="700"/>
 
 </div>
 
