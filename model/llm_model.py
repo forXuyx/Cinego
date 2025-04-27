@@ -49,8 +49,13 @@ class VideoSummarizer(nn.Module):
             CrossAttentionBlock(embed_dim, num_heads, dropout) 
             for _ in range(num_layers)
         ])
+        self.cross_attn_t = nn.ModuleList([
+            CrossAttentionBlock(embed_dim, num_heads, dropout) 
+            for _ in range(num_layers)
+        ])
 
         self.query_s = nn.Parameter(torch.randn(1, n_queries, embed_dim))
+        self.query_t = nn.Parameter(torch.randn(1, n_queries, embed_dim))
 
     def forward(self, F_v):
         """
@@ -61,10 +66,12 @@ class VideoSummarizer(nn.Module):
         F_v = F_v.view(B, N*P, D)  # (B, N*197, D)
 
         Q_s = self.query_s.expand(B, -1, -1).contiguous()
+        Q_t = self.query_t.expand(B, -1, -1).contiguous()
 
         for i in range(self.num_layers):
             F_s, _ = self.cross_attn_s[i](Q_s, torch.cat([F_v, Q_s], dim=1), torch.cat([F_v, Q_s], dim=1))
-            Q_s = F_s
+            F_t, _ = self.cross_attn_t[i](Q_t, torch.cat([F_v, Q_t], dim=1), torch.cat([F_v, Q_t], dim=1))
+            Q_s = F_s + F_t
 
         return Q_s
 
