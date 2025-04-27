@@ -1,6 +1,6 @@
 <div align="center">
 
-![logo](images/cinego.png)
+<img src="images/cinego.png" alt="logo" width="300"/>
 
 </div>
 
@@ -13,11 +13,8 @@
 
 **项目功能清单（含待做）**
 
-- [ ] 为了更好的适配，我们决定训练一个英文tokenizer
 - [x] 完善UI界面，实现UI界面多轮对话逻辑
 - [x] 实现多轮对话训练逻辑
-- [x] 使用统一语言的数据集（首要需要解决的，感觉目前生成的全是胡言乱语......）
-- [ ] 进行多Stage的SFT（图片SFT -> 多轮对话图片SFT -> 视频SFT） 
 - [x] 复现GPT4Video中的VideoSummary结构
 - [x] 实现数据特征的预提取（相当于少了clip获取embedding那一块的计算量，训练稍微能快一点）
 - [x] 修改dataset结构兼容图片、视频、抽取特征
